@@ -19,6 +19,9 @@
 <style>
   :root {
     --white: #fff;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db; --gray-400: #9ca3af;
+    --gray-500: #6b7280; --gray-600: #4b5563; --gray-900: #111827;
+    --red-50: #fef2f2; --red-700: #b91c1c; --blue-500: #3b82f6; --blue-600: #2563eb; --purple-50: #ededfd;
     --grey-50: #f0f1f3; --grey-100: #e1e3e6; --grey-200: #c5c7cb; --grey-300: #a6aab3;
     --grey-400: #898e99; --grey-500: #6b7280; --grey-600: #565b66; --grey-700: #40444d;
     --grey-900: #15171a;
@@ -178,24 +181,111 @@
   .link { text-decoration: underline; text-underline-offset: 2px; }
   .count { padding: 32px 0 20px; }
   .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
-  .card { border: 1px solid var(--grey-50); border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: background .15s; }
-  .card:hover, .card.active { background: var(--purple-100); }
-  .card.top:hover, .card.top.active { background: var(--green-50); }
-  .card-head { display: flex; justify-content: space-between; align-items: center; margin: -20px -20px 12px; padding: 8px 20px; border-radius: 8px 8px 0 0; border-top-left-radius: 0; min-height: 36px; }
-  .card.top .card-head { background: var(--green-50); }
-  .card.top.active .card-head, .card.top:hover .card-head { background: var(--green-100); }
-  .card-head .tag { display: flex; gap: 8px; align-items: center; text-transform: uppercase; font-weight: 500; font-size: 12px; color: var(--grey-700); }
-  @media (min-width: 1024px) { .card-head .tag { font-size: 14px; } }
-  .card.top .card-head .tag { color: var(--green-600); }
-  .card-head .tag .icon { transform: rotate(-10deg); width: 14px; }
-  .card-head .copay { font-weight: 600; color: var(--grey-700); }
-  .addr { display: grid; grid-template-columns: 1fr 60px; gap: 8px; padding-top: 4px; color: var(--grey-700); }
-  .addr .mi { text-align: right; align-self: end; }
-  .divider { margin: 20px -20px; height: 2px; background: #f8f8f8; border: 0; }
-  .provider { display: flex; gap: 12px; align-items: center; }
-  .provider .avatar-lg { width: 64px; height: 64px; border-radius: 999px; background: var(--grey-50); color: var(--grey-500); display: grid; place-items: center; flex-shrink: 0; }
-  .provider .avatar-lg .icon { width: 30px; height: 30px; stroke-width: 1.5; }
-  .provider .service { padding-top: 4px; color: var(--grey-500); }
+  /* Result card: LockInCopayModal/v2/SearchResultCard */
+  .rcard { background: #fff; border-radius: 8px; border: 1px solid var(--gray-200); overflow: hidden; box-shadow: 0 1px 3px 0 rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+  .rcard-body { padding: 16px; transition: background .15s; }
+  .rcard:hover .rcard-body, .rcard.active .rcard-body { background: var(--purple-50); }
+  .rcard.top:hover .rcard-body, .rcard.top.active .rcard-body { background: var(--green-50); }
+  .rcard-top { display: flex; align-items: flex-start; justify-content: space-between; }
+  .rcard h3 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 500; color: var(--gray-900); }
+  .rcard-addr { margin-top: 4px; display: flex; align-items: center; font-size: 14px; line-height: 20px; color: var(--gray-500); }
+  .rcard-addr .bullet { color: var(--gray-300); margin: 0 8px; }
+  .rcard-addr .nowrap { white-space: nowrap; }
+  .pin-icon { width: 16px; height: 16px; color: var(--gray-400); margin-right: 4px; flex-shrink: 0; display: none; }
+  @media (min-width: 640px) { .pin-icon { display: inline; } }
+  .rcard-amount { margin-left: 16px; text-align: right; }
+  .rcard-amount span { font-size: 20px; line-height: 28px; font-weight: 700; color: var(--grey-700); }
+  .rcard.top .rcard-amount span { color: var(--green-600); }
+  .rcard-amount p { margin: 0; font-size: 12px; line-height: 16px; color: var(--gray-500); }
+  .rcard-provider { margin-top: 16px; display: flex; align-items: center; }
+  .rcard-provider .who { margin-left: 12px; }
+  .rcard-provider h4 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; color: var(--gray-900); }
+  .rcard-provider p { margin: 0; font-size: 14px; line-height: 20px; color: var(--gray-500); }
+  .doctor { position: relative; display: flex; align-items: center; width: 64px; height: 64px; flex-shrink: 0; }
+  @media (min-width: 1024px) { .doctor { width: 75px; height: 75px; } }
+  .rcard-chips { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip-top { padding: 2px 10px; border-radius: 999px; font-size: 12px; line-height: 16px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; display: inline-flex; align-items: center; background: var(--green-50); color: var(--green-600); transition: background .15s, color .15s; }
+  .rcard:hover .chip-top { background: var(--green-700); color: #fff; }
+  .rcard-foot { background: var(--gray-50); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; border-top: 1px solid var(--gray-200); }
+  .rcard-foot .guarantee { display: flex; align-items: center; font-size: 14px; line-height: 20px; color: var(--gray-500); }
+  .rcard-foot .guarantee svg { width: 16px; height: 16px; color: var(--gray-400); margin-right: 4px; }
+  .rcard .btn { height: 40px; padding: 8px 16px; font-size: 14px; }
+  .disclaimer { margin: 0; font-size: 12px; line-height: 16px; color: var(--gray-300); font-style: italic; padding: 12px 16px; border-top: 1px solid var(--gray-200); }
+
+  /* Dialog: components/ui/dialog + LockInCopayModal */
+  body.modal-open { overflow: hidden; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,.8); animation: fade-in .2s; }
+  .dialog { position: fixed; left: 50%; top: 50%; z-index: 2001; transform: translate(-50%, -50%); display: grid; gap: 16px; width: 100%; max-width: min(calc(100vw - 32px), 500px); max-height: calc(100vh - 32px); overflow: auto; border-radius: 8px; border: 1px solid var(--gray-200); background: #fff; padding: 0 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1); animation: zoom-in .2s; }
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes zoom-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.95); } }
+  .lock-v2 { position: relative; margin: 0 -20px; }
+  .lock-close { position: absolute; right: 12px; top: 12px; z-index: 10; border-radius: 999px; padding: 4px; color: var(--gray-500); transition: background .15s, color .15s; }
+  .lock-close:hover { background: rgba(229,231,235,.7); color: var(--gray-900); }
+  .lock-close .icon, .dialog-head .x .icon { width: 20px; height: 20px; }
+  .lock-head { background: var(--blue-50); padding: 16px 24px; border-bottom: 1px solid var(--gray-200); }
+  .lock-head > div { width: 90%; }
+  .lock-head h2 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; color: var(--gray-900); }
+  .lock-head p { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--gray-500); }
+  .lock-provider { padding: 16px 24px; border-bottom: 1px solid var(--gray-100); }
+  .lock-provider h3 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; color: var(--gray-900); }
+  .lock-addr { display: flex; align-items: center; gap: 8px; }
+  .lock-addr .pin-icon { margin-right: 4px; }
+  .lock-addr p { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--gray-600); }
+  .lock-amount { margin-left: 16px; text-align: right; font-size: 24px; line-height: 32px; font-weight: 700; color: var(--grey-700); }
+  .lock-amount.top { color: var(--green-600); }
+  .lock-phone { margin-top: 16px; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--primary); }
+  .lock-phone .icon { width: 14px; height: 14px; color: var(--blue-600); }
+  .lock-phone a { color: var(--primary); text-decoration: none; }
+  .lock-v2 > .disclaimer { margin-top: 2px; border-top: 0; border-bottom: 1px solid var(--gray-200); }
+  .acc-item { padding: 0 16px; }
+  .acc-item.bordered { border-bottom: 1px solid var(--gray-100); }
+  .acc-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 16px 0; font-weight: 500; }
+  .acc-trigger:hover .label { text-decoration: underline; }
+  .acc-trigger .label { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 14px; text-align: left; }
+  .acc-trigger .label .icon { width: 20px; height: 20px; }
+  .acc-trigger > .icon { width: 16px; height: 16px; transition: transform .2s; }
+  .acc-trigger[aria-expanded="true"] > .icon { transform: rotate(180deg); }
+  .acc-content { padding-bottom: 16px; font-size: 14px; }
+  .acc-copay { display: flex; flex-direction: column; gap: 12px; background: var(--grey-50); padding: 16px; border-radius: 4px; color: var(--grey-900); }
+  .acc-copay p, .acc-copay div, .precert p { margin: 0; font-size: 12px; line-height: 16px; }
+  @media (min-width: 1024px) { .acc-copay p, .acc-copay div, .precert p { font-size: 14px; line-height: 20px; } }
+  .acc-precert { background: var(--red-50); padding: 16px; border-radius: 4px; margin-bottom: 8px; }
+  .precert { display: flex; flex-direction: column; gap: 16px; color: var(--grey-700); }
+  .precert .title { color: var(--grey-900); font-size: 14px; font-weight: 500; }
+  .lock-foot { padding: 0 24px; background: var(--gray-50); border-top: 1px solid var(--gray-200); }
+  .lock-foot > div { position: sticky; bottom: 0; background: linear-gradient(180deg, transparent 0, #fff 20px); padding: 24px 0 16px; }
+  .btn-block { width: 100%; border-radius: 4px; position: relative; }
+  .btn .invisible { visibility: hidden; }
+  .btn .spin { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .dialog-head { display: flex; align-items: center; justify-content: space-between; padding-top: 24px; }
+  .dialog-head .x { margin-top: -16px; border-radius: 4px; }
+  .dialog-head h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; letter-spacing: -.025em; }
+  @media (min-width: 1024px) { .dialog-head h2 { font-size: 18px; } }
+  .lock-badge { position: relative; width: max-content; }
+  .lock-badge .icon { width: 24px; height: 24px; display: block; }
+  .lock-badge .check { position: absolute; width: 8px; height: 8px; left: 50%; top: 13px; transform: translateX(-50%); stroke-width: 6; }
+  .success { display: flex; flex-direction: column; gap: 32px; padding-bottom: 20px; font-size: 14px; }
+  @media (min-width: 1024px) { .success { font-size: 16px; } }
+  .success > p { margin: 0; }
+  .success > p a { color: inherit; text-decoration: none; border-bottom: 1px solid var(--grey-900); }
+  .loc-card { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--grey-50); border-radius: 8px; padding: 20px 16px 16px; }
+  .loc-card .row { display: flex; justify-content: space-between; gap: 16px; }
+  .loc-card .sob { color: var(--grey-900); text-wrap: balance; }
+  .loc-card .amt { font-weight: 600; color: var(--grey-700); }
+  .loc-card .addr2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; color: var(--grey-700); }
+  .loc-card .addr2 .mi { align-self: end; }
+  .loc-card .phone { margin-top: 16px; display: flex; align-items: center; gap: 8px; color: var(--grey-700); }
+  .loc-card .phone .icon { width: 14px; height: 14px; }
+  .loc-card .phone a { color: var(--primary); text-decoration: none; }
+  .loc-card .doc { display: flex; gap: 8px; align-items: center; }
+  .loc-card .disclaimer { margin-top: 16px; padding: 12px 0 0; }
+  .success-actions { display: grid; gap: 12px; }
+  @media (min-width: 640px) { .success-actions { display: flex; flex-wrap: wrap; } }
+  .success-actions .btn { border-radius: 4px; }
+  .btn-outline-input { background: #fff; color: var(--grey-900); border: 1px solid var(--input); }
+  .btn-outline-input:hover { background: var(--accent); }
   .end { padding-top: 16px; text-align: center; color: var(--muted); }
 
   /* Map pins (MapMarker look) */
@@ -257,6 +347,11 @@
   <div class="results-map"><div id="map"></div></div>
 </main>
 
+<div id="lock-modal" hidden>
+  <div class="overlay"></div>
+  <div class="dialog" id="lock-dialog" role="dialog" aria-modal="true" aria-labelledby="lock-title"></div>
+</div>
+
 <script>
 /* ------------------------------------------------------------------ icons */
 const ICONS = {
@@ -264,10 +359,14 @@ const ICONS = {
   chevronLeft: '<path d="m15 18-6-6 6-6"/>',
   chevronsUpDown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
-  user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  triangleAlert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  loaderCircle: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
   checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
-  lockOpen: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
-  building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
 }
 const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`
 const esc = (value) =>
@@ -277,22 +376,25 @@ const countLabel = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 /* ------------------------------------------------------- reference data */
 // Knee Pain mirrors its VisitReasonSpecialtySobLineItem rows. The other visit
 // reasons are plausible stand-ins so every row can be drilled into.
+// `acuity` orders care from least to most acute in the visit reason panel.
 const SOB = {
-  specialtyCare: { id: 'sob-specialty-care', name: 'Specialty Care Visit (office, home, virtual, phone)', kind: 'specialist' },
-  primaryCare: { id: 'sob-primary-care', name: 'Primary Care Visit (office, home, virtual, phone)', kind: 'primaryCare' },
-  physicalTherapy: { id: 'sob-physical-therapy', name: 'Physical Therapy', kind: 'physicalTherapy' },
-  chiropractic: { id: 'sob-chiropractic', name: 'Chiropractic Care/Spinal Manipulations', kind: 'chiropractic' },
-  retailClinic: { id: 'sob-retail-clinic', name: 'Walk-In Retail/Convenience Clinic', kind: 'retailClinic' },
-  urgentCare: { id: 'sob-urgent-care', name: 'Urgent Care Visit', kind: 'urgentCare' },
-  advancedImaging: { id: 'sob-advanced-imaging', name: 'Advanced Imaging (MRI, CT, PET)', kind: 'imaging' },
-  outpatientSurgery: { id: 'sob-outpatient-surgery', name: 'Outpatient Surgery (facility)', kind: 'outpatientSurgery' },
-  inpatientStay: { id: 'sob-inpatient-stay', name: 'Inpatient Hospital Stay', kind: 'inpatient' },
+  retailClinic: { id: 'sob-retail-clinic', name: 'Walk-In Retail/Convenience Clinic', kind: 'retailClinic', acuity: 1 },
+  primaryCare: { id: 'sob-primary-care', name: 'Primary Care Visit (office, home, virtual, phone)', kind: 'primaryCare', acuity: 2 },
+  chiropractic: { id: 'sob-chiropractic', name: 'Chiropractic Care/Spinal Manipulations', kind: 'chiropractic', acuity: 3 },
+  physicalTherapy: { id: 'sob-physical-therapy', name: 'Physical Therapy', kind: 'physicalTherapy', acuity: 4 },
+  specialtyCare: { id: 'sob-specialty-care', name: 'Specialty Care Visit (office, home, virtual, phone)', kind: 'specialist', acuity: 5 },
+  urgentCare: { id: 'sob-urgent-care', name: 'Urgent Care Visit', kind: 'urgentCare', acuity: 6 },
+  advancedImaging: { id: 'sob-advanced-imaging', name: 'Advanced Imaging (MRI, CT, PET)', kind: 'imaging', acuity: 7 },
+  outpatientSurgery: { id: 'sob-outpatient-surgery', name: 'Outpatient Surgery (facility)', kind: 'outpatientSurgery', acuity: 8 },
+  inpatientStay: { id: 'sob-inpatient-stay', name: 'Inpatient Hospital Stay', kind: 'inpatient', acuity: 9 },
 }
 const COPAY_BY_KIND = {
   specialist: 50, primaryCare: 25, physicalTherapy: 35, chiropractic: 30, retailClinic: 20,
   urgentCare: 75, imaging: 150, outpatientSurgery: 250, inpatient: 500,
 }
 const LOCATION_ONLY_KINDS = ['retailClinic', 'urgentCare', 'imaging', 'outpatientSurgery', 'inpatient']
+const PRIOR_AUTH_KINDS = ['imaging', 'outpatientSurgery', 'inpatient']
+const COPAY_EXPIRY_DAYS = 30
 
 const spec = (name) => ({ id: `spec-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name })
 const S = {
@@ -414,10 +516,10 @@ const LINE_ITEMS = [
 
 const comboId = (visitReason, { specialty, sobLineItem }) => `${visitReason.id}:${specialty.id}:${sobLineItem.id}`
 
-/** A visit reason's specialty / SOB line item rows, sorted like the specialty results. */
+/** A visit reason's specialty / SOB line item rows, least acute care first. */
 function sortedCombos(visitReason) {
   return [...visitReason.combos].sort(
-    (a, b) => a.specialty.name.localeCompare(b.specialty.name) || a.sobLineItem.name.localeCompare(b.sobLineItem.name),
+    (a, b) => a.sobLineItem.acuity - b.sobLineItem.acuity || a.specialty.name.localeCompare(b.specialty.name),
   )
 }
 
@@ -472,7 +574,11 @@ const LOCATIONS = [
   ['loc-13', 'New Berlin Pediatrics & Family Care', '15250 W National Ave', 'New Berlin', '53151', 42.9862, -88.1198, ['primaryCare', 'specialist']],
   ['loc-14', 'Brookfield Chiropractic & Wellness', '19035 W Capitol Dr', 'Brookfield', '53045', 43.0893, -88.1519, ['chiropractic']],
   ['loc-15', 'West Allis Physical Therapy & Sports Rehab', '10101 W Greenfield Ave', 'West Allis', '53214', 43.0167, -88.0402, ['physicalTherapy']],
-].map(([id, name, street, city, zip, lat, lng, kinds]) => ({ id, name, street, city, zip, lat, lng, kinds }))
+].map(([id, name, street, city, zip, lat, lng, kinds]) => {
+  const line = String(1000000 + (hash(id) % 9000000))
+  const phone = `(262) ${line.slice(0, 3)}-${line.slice(3)}`
+  return { id, name, street, city, zip, lat, lng, kinds, phone }
+})
 
 const FIRST_NAMES = ['Sarah', 'Michael', 'Priya', 'David', 'Emily', 'James', 'Laura', 'Daniel', 'Megan', 'Andrew', 'Rachel', 'Kevin']
 const LAST_NAMES = ['Hartman', 'Okafor', 'Lindqvist', 'Ramirez', 'Schultz', 'Nguyen', 'Kowalski', 'Brennan', 'Patel', 'Becker', 'Morrison', 'Thao']
@@ -516,11 +622,14 @@ function mockCopaySearch(selection, member) {
             sobLineItem,
             specialty,
             locationOnly,
+            priorAuthRequired: PRIOR_AUTH_KINDS.includes(sobLineItem.kind),
             provider: locationOnly
               ? null
               : {
                   name: `${FIRST_NAMES[seed % FIRST_NAMES.length]} ${LAST_NAMES[(seed >> 4) % LAST_NAMES.length]}`,
                   degrees: DEGREES[sobLineItem.kind] ?? 'MD',
+                  // FIRST_NAMES alternates female, male.
+                  gender: seed % 2 === 0 ? 'female' : 'male',
                 },
           })
         }
@@ -636,7 +745,7 @@ function renderResultsPanel() {
                 data: { id: r.id },
                 leading: badge('reason'),
                 title: r.visitReason.name,
-                subtitle: countLabel(r.visitReason.combos.length, 'specialty option'),
+                subtitle: countLabel(r.visitReason.combos.length, 'care option'),
                 drillable: true,
                 selected: selectedId.startsWith(r.id),
               })
@@ -668,7 +777,7 @@ function panelHead({ back, eyebrow, title, desc }) {
 function renderVisitReasonPanel(visitReason) {
   const selectedId = state.selection?.id ?? ''
   return `
-    ${panelHead({ back: 'Back to search results', eyebrow: badge('reason'), title: visitReason.name, desc: 'Which specialty are you looking for?' })}
+    ${panelHead({ back: 'Back to search results', eyebrow: badge('reason'), title: visitReason.name, desc: 'What kind of care are you interested in?' })}
     <div class="panel-list">
       ${sortedCombos(visitReason)
         .map((c) =>
@@ -968,29 +1077,191 @@ function summaryHtml() {
   return `<div class="summary"><div class="label">Copays for</div><div class="path">${pathHtml}</div>${note}</div>`
 }
 
+const PIN_SVG = '<svg class="pin-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>'
+const SHIELD_SVG = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>'
+const DISCLAIMER = 'Distances shown are approximate. Actual driving distance may vary.'
+
+const addressOf = (r) => `${r.location.street}, ${r.location.city}, WI ${r.location.zip}`
+const milesOf = (r) => Math.round(r.distance * 10) / 10
+const providerName = (r) => `${r.provider.name}, ${r.provider.degrees}`
+const doctorIcon = (r) =>
+  `<div class="doctor"><img src="assets/${r.provider ? `${r.provider.gender}-doctor` : 'location'}.svg" alt="" /></div>`
+const lockInLabel = (r) => `Lock in $${r.amount} Copay`
+
 function cardHtml(r) {
-  const address = `${r.location.street}, ${r.location.city}, WI, ${r.location.zip}`
-  const who = r.provider
-    ? `<p class="typo-subtitle-1">${esc(`${r.provider.name}, ${r.provider.degrees}`)}</p>
-       <p class="typo-body-1" style="padding-top:2px;color:var(--grey-700)">${esc(r.specialty.name)}</p>`
-    : `<p class="typo-subtitle-1">Any provider at this location</p>`
   return `
     <li id="result-${r.id}" data-location="${r.location.id}">
-      <div class="card ${r.topChoice ? 'top' : ''} ${state.activeLocationId === r.location.id ? 'active' : ''}">
-        <div class="card-head">
-          <span class="tag">${r.topChoice ? `${icon('lockOpen')}top choice` : ''}</span>
-          <span class="copay">$${r.amount}</span>
-        </div>
-        <p class="typo-heading-6">${esc(r.location.name)}</p>
-        <div class="addr typo-body-1"><p>${esc(address)}</p><p class="mi">${r.distance.toFixed(1)} mi</p></div>
-        <hr class="divider" />
-        <div class="provider">
-          <span class="avatar-lg">${icon(r.provider ? 'user' : 'building')}</span>
-          <div>${who}<p class="typo-body-2 service">${esc(r.sobLineItem.name)}</p></div>
+      <div style="padding:12px 0">
+        <div class="rcard ${r.topChoice ? 'top' : ''} ${state.activeLocationId === r.location.id ? 'active' : ''}">
+          <div class="rcard-body">
+            <div class="rcard-top">
+              <div style="flex:1">
+                <h3>${esc(r.location.name)}</h3>
+                <div class="rcard-addr">${PIN_SVG}<div style="text-wrap:balance"><span>${esc(addressOf(r))}</span><span class="bullet">•</span><span class="nowrap">${milesOf(r)} mi</span></div></div>
+              </div>
+              <div class="rcard-amount"><span>$${r.amount}</span><p>guaranteed cost</p></div>
+            </div>
+            ${
+              r.locationOnly
+                ? ''
+                : `<div class="rcard-provider">${doctorIcon(r)}<div class="who"><h4>${esc(providerName(r))}</h4><p>${esc(r.specialty.name)}</p></div></div>`
+            }
+            <div class="rcard-chips">${r.topChoice ? '<div class="chip-top"><span>Top Choice</span></div>' : ''}</div>
+          </div>
+          <div class="rcard-foot">
+            <div class="guarantee">${SHIELD_SVG}Guaranteed price valid for ${COPAY_EXPIRY_DAYS} days</div>
+            <button type="button" class="btn" data-lock-in="${r.id}">${lockInLabel(r)}</button>
+          </div>
+          <p class="disclaimer">${DISCLAIMER}</p>
         </div>
       </div>
     </li>`
 }
+
+/* ------------------------------------------------- lock-in copay modal */
+const lock = { result: null, step: 'details', submitting: false, opener: null }
+
+function lockInDetailsHtml(r) {
+  const { selection } = state
+  const subtitle = selection.combos.length === 1 ? selection.combos[0].sobLineItem.name : selection.subtitle
+  return `
+    <div class="lock-v2">
+      <button type="button" class="lock-close" data-lock-close>${icon('x')}<span class="sr-only">Close</span></button>
+      <div class="lock-head"><div><h2 id="lock-title">${esc(selection.title)}</h2>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div></div>
+      <div class="lock-provider">
+        <div style="display:flex;align-items:flex-start">
+          <div style="flex:1">
+            <h3>${esc(r.location.name)}</h3>
+            <div class="lock-addr">${PIN_SVG}<div><p>${esc(addressOf(r))}</p><p>${milesOf(r)} miles away</p></div></div>
+          </div>
+          <div class="lock-amount ${r.topChoice ? 'top' : ''}">$${r.amount}</div>
+        </div>
+        ${
+          r.locationOnly
+            ? ''
+            : `<div class="rcard-provider">${doctorIcon(r)}<div class="who"><h4>${esc(providerName(r))}</h4><p>${esc(r.specialty.name)}</p></div></div>`
+        }
+        <p class="lock-phone">${icon('phone')}<a href="tel:${r.location.phone}">${r.location.phone}</a></p>
+      </div>
+      <p class="disclaimer">${DISCLAIMER}</p>
+      <div>
+        <div class="acc-item ${r.priorAuthRequired ? 'bordered' : ''}">
+          <button type="button" class="acc-trigger" aria-expanded="false" aria-controls="acc-copay">
+            <span class="label">${icon('info')}<span style="margin-right:auto">What does "lock in copay" mean?</span></span>${icon('chevronDown')}
+          </button>
+          <div class="acc-content" id="acc-copay" hidden>
+            <div class="acc-copay">
+              <div>What is a copay?</div>
+              <p>A copay is a flat fee that you pay each time you go to your doctor or fill a prescription.</p>
+              <p>This copay is valid for ${COPAY_EXPIRY_DAYS} days. Any provider, location or treatment changes may result in a different copay.</p>
+            </div>
+          </div>
+        </div>
+        ${
+          r.priorAuthRequired
+            ? `<div class="acc-item">
+                <button type="button" class="acc-trigger" aria-expanded="false" aria-controls="acc-precert">
+                  <span class="label">${icon('triangleAlert')}Important Information</span>${icon('chevronDown')}
+                </button>
+                <div class="acc-content acc-precert" id="acc-precert" hidden>
+                  <div class="precert">
+                    <div class="title">This procedure requires a pre-certification</div>
+                    <p>Pre-certification — sometimes called prior authorization or prior approval — is a health insurance requirement where your doctor requests approval from your insurance company before you receive certain treatments or care. This ensures that the treatment is covered and medically necessary.</p>
+                    <p>Please ask your provider to request pre-certification from your insurance company.</p>
+                  </div>
+                </div>
+              </div>`
+            : ''
+        }
+      </div>
+      <div class="lock-foot">
+        <div>
+          <button type="button" class="btn btn-block" data-lock-submit>${lockInLabel(r)}</button>
+        </div>
+      </div>
+    </div>`
+}
+
+function lockInSuccessHtml(r) {
+  return `
+    <div class="dialog-head">
+      <div style="display:flex;gap:4px">
+        <div class="lock-badge">${icon('lock')}${icon('check', 'check')}</div>
+        <h2 id="lock-title">Copay Successfully Locked In</h2>
+      </div>
+      <button type="button" class="x" data-lock-close>${icon('x')}<span class="sr-only">Close</span></button>
+    </div>
+    <div class="success">
+      <p>Great! You've guaranteed your copay amount. If you haven't already, schedule your appointment by contacting ${esc(r.location.name)} via <a href="tel:${r.location.phone}">${r.location.phone}</a>.</p>
+      <div class="loc-card">
+        <div class="row"><div class="sob typo-subtitle-1">${esc(r.sobLineItem.name)}</div><span class="amt">$${r.amount}</span></div>
+        <div>
+          <h6 class="typo-heading-6">${esc(r.location.name)}</h6>
+          <div class="addr2 typo-body-1"><p style="margin:0">${esc(addressOf(r))}</p><p class="mi" style="margin:0">${milesOf(r)} mi</p></div>
+          <p class="phone">${icon('phone')}<a href="tel:${r.location.phone}">${r.location.phone}</a></p>
+        </div>
+        ${r.provider ? `<div class="doc">${doctorIcon(r)}<p class="typo-subtitle-1">${esc(providerName(r))}</p></div>` : ''}
+        <p class="disclaimer">${DISCLAIMER}</p>
+      </div>
+      <div class="success-actions">
+        <button type="button" class="btn" data-lock-close>Go to Locked In Copays</button>
+        <button type="button" class="btn btn-outline-input" data-lock-close>Back to Browsing</button>
+      </div>
+    </div>`
+}
+
+function renderLockIn() {
+  const dialog = $('lock-dialog')
+  dialog.innerHTML = lock.step === 'success' ? lockInSuccessHtml(lock.result) : lockInDetailsHtml(lock.result)
+}
+
+function openLockIn(resultId, opener) {
+  lock.result = state.results.find((r) => r.id === resultId)
+  lock.step = 'details'
+  lock.submitting = false
+  lock.opener = opener
+  renderLockIn()
+  $('lock-modal').hidden = false
+  document.body.classList.add('modal-open')
+  $('lock-dialog').querySelector('[data-lock-close]').focus()
+}
+
+function closeLockIn() {
+  $('lock-modal').hidden = true
+  document.body.classList.remove('modal-open')
+  lock.opener?.focus()
+}
+
+async function submitLockIn() {
+  lock.submitting = true
+  const button = $('lock-dialog').querySelector('[data-lock-submit]')
+  button.disabled = true
+  button.innerHTML = `<span class="invisible">${lockInLabel(lock.result)}</span>${icon('loaderCircle', 'spin')}`
+  await new Promise((resolve) => setTimeout(resolve, 800))
+  if ($('lock-modal').hidden) return
+  lock.submitting = false
+  lock.step = 'success'
+  renderLockIn()
+  $('lock-dialog').querySelector('[data-lock-close]').focus()
+}
+
+els.resultsList.addEventListener('click', (e) => {
+  const button = e.target.closest('[data-lock-in]')
+  if (button) openLockIn(button.dataset.lockIn, button)
+})
+$('lock-modal').addEventListener('click', (e) => {
+  if (e.target.closest('[data-lock-close]') || e.target.classList.contains('overlay')) return closeLockIn()
+  if (e.target.closest('[data-lock-submit]')) return submitLockIn()
+  const trigger = e.target.closest('.acc-trigger')
+  if (trigger) {
+    const open = trigger.getAttribute('aria-expanded') !== 'true'
+    trigger.setAttribute('aria-expanded', String(open))
+    $(trigger.getAttribute('aria-controls')).hidden = !open
+  }
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('lock-modal').hidden) closeLockIn()
+})
 
 function renderResults() {
   const { selection, location, results } = state
@@ -1080,7 +1351,7 @@ function scrollToResult(id) {
 function setActiveLocation(locationId, { pan = false } = {}) {
   state.activeLocationId = locationId
   document.querySelectorAll('.cards li').forEach((li) => {
-    li.querySelector('.card').classList.toggle('active', li.dataset.location === locationId)
+    li.querySelector('.rcard').classList.toggle('active', li.dataset.location === locationId)
   })
   document.querySelectorAll('.pin').forEach((pin) => pin.classList.toggle('active', pin.dataset.pin === locationId))
   const marker = markers.get(locationId)
