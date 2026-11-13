@@ -1,0 +1,1232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Know before you go. · Visit reason drill-down prototype</title>
+<link rel="icon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!--
+  Static prototype of drilling into a visit reason to pick the SOB line item and
+  specialty to price. Everything is mocked in this file: the typeahead response,
+  the copay results, and the provider locations. No backend is called.
+  Styling mirrors the shopping-tool design tokens (app/globals.css).
+-->
+<style>
+  :root {
+    --white: #fff;
+    --grey-50: #f0f1f3; --grey-100: #e1e3e6; --grey-200: #c5c7cb; --grey-300: #a6aab3;
+    --grey-400: #898e99; --grey-500: #6b7280; --grey-600: #565b66; --grey-700: #40444d;
+    --grey-900: #15171a;
+    --blue-50: #eff6ff; --blue-100: #dbeafe; --blue-300: #93c5fd; --blue-700: #1d4ed8;
+    --green-50: #ecfdf5; --green-100: #d1fae5; --green-600: #059669; --green-700: #047857; --green-800: #065f46;
+    --orange-50: #fff2ed; --orange-100: #ffe4db; --orange-200: #ffc9b8; --orange-700: #99472d; --orange-800: #66301f;
+    --purple-100: #dadafa; --purple-200: #b6b6f5; --purple-500: #4848e6;
+    --primary: #1d1d5c;
+    --accent: #e1e3e6;
+    --input: #a6aab3;
+    --ring: #898e99;
+    --muted: #565b66;
+    --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-poppins: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+    --header-h: 96px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: var(--font-inter); color: var(--grey-900); min-height: 100vh; display: flex; flex-direction: column; background: #fff; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+  textarea { font: inherit; }
+  [hidden] { display: none !important; }
+  svg.icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  /* Typography (typo-* utilities) */
+  .typo-heading-6 { font-family: var(--font-poppins); font-weight: 500; font-size: 16px; margin: 0; }
+  .typo-subtitle-1 { font-weight: 500; font-size: 14px; margin: 0; }
+  .typo-body-1 { font-size: 14px; margin: 0; }
+  .typo-body-2 { font-size: 12px; margin: 0; }
+  @media (min-width: 1024px) {
+    .typo-heading-6 { font-size: 18px; }
+    .typo-subtitle-1, .typo-body-1 { font-size: 16px; }
+    .typo-body-2 { font-size: 14px; }
+  }
+  .muted { color: var(--muted); }
+
+  /* Header */
+  .header { position: sticky; top: 0; z-index: 1000; height: var(--header-h); background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.1); padding: 0 24px; display: flex; align-items: center; gap: 16px; }
+  .logo { display: flex; flex-direction: column; align-items: center; }
+  .logo img { width: 148px; height: 30px; object-fit: contain; }
+  .logo span { font-size: 8px; font-weight: 500; margin-top: 2px; }
+  .proto-pill { white-space: nowrap; border-radius: 999px; background: var(--orange-100); color: var(--orange-700); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 10px; }
+  .spacer { flex: 1; }
+  .user { display: flex; align-items: center; gap: 16px; color: var(--grey-700); font-size: 13px; font-weight: 600; }
+  .avatar { width: 40px; height: 40px; border-radius: 999px; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 400; }
+  @media (max-width: 1023px) { .user .name { display: none; } }
+
+  /* Search hero */
+  .hero { background: linear-gradient(135deg, #1e3a8a, #1d4ed8 50%, #2563eb); display: flex; justify-content: center; }
+  .hero-inner { width: 100%; max-width: 940px; padding: 0 20px; margin: 60px 0 24px; }
+  @media (min-width: 1024px) { .hero-inner { padding: 0; margin: 64px 0 80px; } }
+  .hero h1 { color: #fff; font-weight: 400; font-size: 24px; line-height: 1.25; margin: 0 0 24px; }
+  .hero h1 .hl { color: var(--blue-300); font-weight: 500; }
+  @media (min-width: 768px) { .hero h1 { font-size: 36px; } }
+  .search-form { background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: 12px; display: flex; flex-direction: column; gap: 16px; }
+  @media (min-width: 640px) { .search-form { padding: 24px; } }
+  @media (min-width: 1024px) { .search-form { display: grid; grid-template-columns: 1fr 1fr auto; align-items: start; } }
+  .field { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .helper { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  @media (min-width: 1024px) { .helper { white-space: nowrap; } }
+  .trigger { width: 100%; display: flex; flex-direction: column; border: 1px solid var(--input); border-radius: 6px; background: #fff; padding: 8px 16px; font-size: 14px; min-height: 40px; }
+  @media (min-width: 1024px) { .trigger { font-size: 16px; } }
+  .trigger .row { display: flex; width: 100%; align-items: flex-start; gap: 8px; }
+  .trigger .lead { flex: 1; white-space: pre-wrap; word-break: break-word; }
+  .trigger .lead.placeholder { color: var(--muted); }
+  .trigger .icon { margin-top: 3px; opacity: .5; }
+  .trigger hr { width: 100%; margin: 8px 0; border: 0; border-top: 1px solid var(--grey-100); }
+  .trigger .trail { font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; border-radius: 6px; font-size: 14px; height: 40px; padding: 8px 16px; background: var(--primary); color: #fff; transition: background .15s; }
+  .btn:hover { background: rgba(29,29,92,.9); }
+  .btn:disabled { opacity: .5; pointer-events: none; }
+  .btn-outline { background: #fff; color: var(--primary); border: 1px solid var(--primary); height: 36px; padding: 0 12px; }
+  .btn-outline:hover { background: var(--grey-50); }
+
+  /* Popover */
+  .popover { position: absolute; top: calc(100% + 4px); left: 0; z-index: 50; width: 100%; background: #fff; border: 1px solid var(--grey-100); border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1); overflow: hidden; animation: pop-in .12s ease-out; }
+  .field.service .popover { top: 46px; }
+  @media (min-width: 1024px) { .field.service .popover { width: calc(100% + 9rem); } }
+  @keyframes pop-in { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+  .search-row { display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--grey-100); padding: 0 12px; }
+  .search-row > .icon { margin-top: 14px; opacity: .5; }
+  .search-row textarea { flex: 1; resize: none; overflow: hidden; border: 0; outline: none; background: transparent; padding: 12px 0; font-size: 14px; }
+  .search-row textarea::placeholder { color: var(--muted); }
+  .clear { margin-top: 10px; border-radius: 999px; padding: 2px; }
+  .clear:hover { background: var(--accent); }
+  .clear .icon { opacity: .5; }
+
+  /* Drill-down panels */
+  .viewport { overflow: hidden; transition: height .3s ease-out; }
+  .track { display: flex; align-items: flex-start; transition: transform .3s ease-out; }
+  .track.no-anim, .viewport.no-anim { transition: none; }
+  @media (prefers-reduced-motion: reduce) { .track, .viewport { transition: none; } }
+  .panel { width: 100%; flex-shrink: 0; }
+  .panel-list { max-height: min(55vh, 420px); overflow-y: auto; padding: 8px 0; }
+  .panel-list.dimmed { opacity: .5; pointer-events: none; transition: opacity .15s; }
+  .group-label { padding: 4px 16px 6px; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .panel-head { display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--grey-100); background: rgba(240,241,243,.6); padding: 10px 8px; }
+  .back { margin-top: 2px; border-radius: 6px; padding: 6px; color: var(--grey-700); }
+  .back:hover { background: var(--grey-100); }
+  .panel-head .titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .panel-head .eyebrow { font-size: 12px; color: var(--muted); }
+  .panel-head .title { font-size: 15px; font-weight: 500; }
+  .panel-head .desc { font-size: 12px; color: var(--muted); }
+  .option { width: 100%; display: flex; align-items: flex-start; gap: 8px; padding: 6px 16px; outline: none; }
+  .option:hover, .option:focus-visible { background: var(--grey-50); }
+  .option[aria-selected="true"] { background: var(--accent); }
+  .option .text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .option .t1 { font-size: 15px; }
+  .option .t1.soft { color: var(--grey-700); }
+  .option .t2 { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .option .caret { margin-top: 4px; color: var(--grey-400); transition: transform .15s, color .15s; }
+  .option:hover .caret, .option:focus-visible .caret { transform: translateX(2px); color: var(--grey-700); }
+  .sep { border: 0; border-top: 1px solid var(--grey-100); margin: 0; opacity: .6; }
+  .dashed { margin: 4px 16px; border: 0; border-top: 1px dashed var(--grey-200); }
+  .badge { display: inline-flex; align-items: center; justify-content: center; width: 80px; flex-shrink: 0; border-radius: 999px; padding: 2px 8px; margin-top: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .badge.reason { background: var(--blue-100); color: var(--blue-700); }
+  .badge.specialty { background: var(--green-100); color: var(--green-700); }
+  .kind { margin-top: 2px; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: var(--blue-50); color: var(--blue-700); flex-shrink: 0; }
+  .kind.soft { background: var(--grey-50); color: var(--grey-500); }
+  .indent { width: 32px; flex-shrink: 0; }
+  .skeleton { background: var(--grey-100); border-radius: 6px; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .5; } }
+  .empty { padding: 24px; text-align: center; font-size: 14px; }
+  .loc-option { width: 100%; padding: 10px 16px; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+  .loc-option:hover { background: var(--grey-50); }
+  .loc-option .check { visibility: hidden; }
+  .loc-option[aria-selected="true"] .check { visibility: visible; }
+  .zip-trigger { flex-direction: row; align-items: center; justify-content: space-between; }
+
+  /* Popular */
+  .popular { width: 320px; margin: 32px auto 28px; }
+  @media (min-width: 640px) { .popular { width: 100%; max-width: 40rem; padding: 0 20px; } }
+  @media (min-width: 768px) { .popular { max-width: none; width: 940px; padding: 0; } }
+  @media (min-width: 640px) { .popular { margin-top: 64px; } }
+  .popular-grid { margin-top: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px 0; }
+  @media (min-width: 1024px) { .popular-grid { display: flex; justify-content: space-between; } }
+  .popular-item { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100px; justify-self: center; }
+  .popular-item .circle { width: 80px; height: 80px; border-radius: 999px; background: var(--grey-50); display: grid; place-items: center; }
+  .popular-item img { width: 48px; height: 48px; }
+
+  /* Results */
+  .results { display: grid; flex: 1; }
+  @media (min-width: 1024px) { .results { grid-template-columns: 45% 55%; grid-template-rows: minmax(0, 1fr); flex: none; height: calc(100vh - var(--header-h)); min-height: 0; } }
+  .results-list { overflow: auto; padding: 24px 20px 80px; order: 2; }
+  .results-map { order: 1; height: 300px; position: relative; }
+  @media (min-width: 1024px) { .results-list { order: 1; padding-bottom: 40px; } .results-map { order: 2; height: 100%; } }
+  #map { width: 100%; height: 100%; }
+  .crumbs { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+  .crumbs button:hover { color: var(--grey-900); }
+  .crumbs .current { color: var(--grey-900); }
+  .summary { margin-top: 24px; border: 1px solid var(--grey-100); border-radius: 8px; padding: 16px; }
+  .summary .label { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .path { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; color: var(--grey-600); }
+  .path .last { color: var(--grey-900); font-weight: 500; }
+  .path .icon { width: 14px; height: 14px; color: var(--grey-400); }
+  .note { margin-top: 12px; display: flex; gap: 8px; align-items: flex-start; border-radius: 6px; padding: 12px; font-size: 14px; }
+  .note > .icon { margin-top: 2px; }
+  .note.warn { background: var(--orange-50); color: var(--orange-800); }
+  .note.ok { background: var(--green-50); color: var(--green-800); }
+  .note p { margin: 0; }
+  .note .stack { display: flex; flex-direction: column; gap: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #fff; border-radius: 999px; padding: 2px 8px; font-size: 12px; box-shadow: 0 0 0 1px var(--orange-200); }
+  .link { text-decoration: underline; text-underline-offset: 2px; }
+  .count { padding: 32px 0 20px; }
+  .cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+  .card { border: 1px solid var(--grey-50); border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.05); transition: background .15s; }
+  .card:hover, .card.active { background: var(--purple-100); }
+  .card.top:hover, .card.top.active { background: var(--green-50); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; margin: -20px -20px 12px; padding: 8px 20px; border-radius: 8px 8px 0 0; border-top-left-radius: 0; min-height: 36px; }
+  .card.top .card-head { background: var(--green-50); }
+  .card.top.active .card-head, .card.top:hover .card-head { background: var(--green-100); }
+  .card-head .tag { display: flex; gap: 8px; align-items: center; text-transform: uppercase; font-weight: 500; font-size: 12px; color: var(--grey-700); }
+  @media (min-width: 1024px) { .card-head .tag { font-size: 14px; } }
+  .card.top .card-head .tag { color: var(--green-600); }
+  .card-head .tag .icon { transform: rotate(-10deg); width: 14px; }
+  .card-head .copay { font-weight: 600; color: var(--grey-700); }
+  .addr { display: grid; grid-template-columns: 1fr 60px; gap: 8px; padding-top: 4px; color: var(--grey-700); }
+  .addr .mi { text-align: right; align-self: end; }
+  .divider { margin: 20px -20px; height: 2px; background: #f8f8f8; border: 0; }
+  .provider { display: flex; gap: 12px; align-items: center; }
+  .provider .avatar-lg { width: 64px; height: 64px; border-radius: 999px; background: var(--grey-50); color: var(--grey-500); display: grid; place-items: center; flex-shrink: 0; }
+  .provider .avatar-lg .icon { width: 30px; height: 30px; stroke-width: 1.5; }
+  .provider .service { padding-top: 4px; color: var(--grey-500); }
+  .end { padding-top: 16px; text-align: center; color: var(--muted); }
+
+  /* Map pins (MapMarker look) */
+  .pin-wrap { background: none; border: 0; }
+  .pin { transform: translate(-50%, -50%); min-width: 40px; max-height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 999px; border: 4px solid var(--purple-200); background: #fff; padding: 10px; font-weight: 700; font-size: 14px; color: var(--grey-900); white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: background .15s, color .15s; }
+  .pin:hover, .pin.active { background: var(--purple-500); color: #fff; }
+  .leaflet-container { font-family: var(--font-inter); }
+  /* Closer to the muted Google Maps style the app uses. */
+  .leaflet-tile-pane { filter: grayscale(.85) brightness(1.06) contrast(.92); }
+  .results-map { isolation: isolate; z-index: 0; }
+</style>
+</head>
+<body>
+<header class="header">
+  <button class="logo" type="button" data-nav="home" aria-label="Home">
+    <img src="assets/prairie-states.svg" alt="Prairie States" />
+    <span>Powered by Helm.</span>
+  </button>
+  <span class="proto-pill">Prototype · mock data</span>
+  <div class="spacer"></div>
+  <div class="user"><span class="name">Test Amerilux HPST</span><span class="avatar">TA</span></div>
+</header>
+
+<main id="search-view">
+  <section class="hero">
+    <div class="hero-inner">
+      <h1>Know before you go:<br /><span class="hl">lock in your exact copay</span><br />ahead of time.</h1>
+      <form class="search-form" id="search-form" autocomplete="off">
+        <div class="field service" id="service-field">
+          <button type="button" class="trigger" id="service-trigger" role="combobox" aria-expanded="false" aria-controls="service-popover"></button>
+          <div class="popover" id="service-popover" hidden>
+            <div class="search-row">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <textarea id="query" rows="1" role="combobox" aria-autocomplete="list" aria-controls="viewport" placeholder="What care are you looking for?"></textarea>
+              <button type="button" class="clear" id="clear" aria-label="Clear search" hidden>
+                <svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            <div class="viewport" id="viewport" role="listbox"><div class="track" id="track"></div></div>
+          </div>
+          <p class="helper">Search by keyword, or describe what you need in your own words.</p>
+        </div>
+        <div class="field" id="zip-field">
+          <button type="button" class="trigger zip-trigger" id="zip-trigger" aria-expanded="false" aria-label="Zip Code"></button>
+          <div class="popover" id="zip-popover" hidden></div>
+        </div>
+        <button type="submit" class="btn" id="find-care" disabled>Find care</button>
+      </form>
+    </div>
+  </section>
+  <section class="popular">
+    <h6 class="typo-heading-6">Popular searched specialties</h6>
+    <div class="popular-grid" id="popular"></div>
+  </section>
+</main>
+
+<main id="results-view" class="results" hidden>
+  <div class="results-list" id="results-list"></div>
+  <div class="results-map"><div id="map"></div></div>
+</main>
+
+<script>
+/* ------------------------------------------------------------------ icons */
+const ICONS = {
+  chevronRight: '<path d="m9 18 6-6-6-6"/>',
+  chevronLeft: '<path d="m15 18-6-6 6-6"/>',
+  chevronsUpDown: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  stethoscope: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
+  activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  user: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  bone: '<path d="M17 10c.7-.7 1.69 0 2.5 0a2.5 2.5 0 1 0 0-5 .5.5 0 0 1-.5-.5 2.5 2.5 0 1 0-5 0c0 .81.7 1.8 0 2.5l-7 7c-.7.7-1.69 0-2.5 0a2.5 2.5 0 0 0 0 5c.28 0 .5.22.5.5a2.5 2.5 0 1 0 5 0c0-.81-.7-1.8 0-2.5Z"/>',
+  store: '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/>',
+  plusSquare: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/><path d="M12 8v8"/>',
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
+  bed: '<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/>',
+  layers: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  lockOpen: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  building: '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>',
+}
+const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`
+const esc = (value) =>
+  String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+const countLabel = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+const specialtyCount = (n) => countLabel(n, 'specialty', 'specialties')
+
+/* ------------------------------------------------------- reference data */
+// Knee Pain mirrors its VisitReasonSpecialtySobLineItem rows. The other visit
+// reasons are plausible stand-ins so every row can be drilled into.
+const SOB = {
+  specialtyCare: { id: 'sob-specialty-care', name: 'Specialty Care Visit (office, home, virtual, phone)', kind: 'specialist' },
+  primaryCare: { id: 'sob-primary-care', name: 'Primary Care Visit (office, home, virtual, phone)', kind: 'primaryCare' },
+  physicalTherapy: { id: 'sob-physical-therapy', name: 'Physical Therapy', kind: 'physicalTherapy' },
+  chiropractic: { id: 'sob-chiropractic', name: 'Chiropractic Care/Spinal Manipulations', kind: 'chiropractic' },
+  retailClinic: { id: 'sob-retail-clinic', name: 'Walk-In Retail/Convenience Clinic', kind: 'retailClinic' },
+  urgentCare: { id: 'sob-urgent-care', name: 'Urgent Care Visit', kind: 'urgentCare' },
+  advancedImaging: { id: 'sob-advanced-imaging', name: 'Advanced Imaging (MRI, CT, PET)', kind: 'imaging' },
+  outpatientSurgery: { id: 'sob-outpatient-surgery', name: 'Outpatient Surgery (facility)', kind: 'outpatientSurgery' },
+  inpatientStay: { id: 'sob-inpatient-stay', name: 'Inpatient Hospital Stay', kind: 'inpatient' },
+}
+const KIND_ICON = {
+  specialist: 'stethoscope', primaryCare: 'user', physicalTherapy: 'activity', chiropractic: 'bone',
+  retailClinic: 'store', urgentCare: 'plusSquare', imaging: 'scan', outpatientSurgery: 'scissors', inpatient: 'bed',
+}
+const COPAY_BY_KIND = {
+  specialist: 50, primaryCare: 25, physicalTherapy: 35, chiropractic: 30, retailClinic: 20,
+  urgentCare: 75, imaging: 150, outpatientSurgery: 250, inpatient: 500,
+}
+const LOCATION_ONLY_KINDS = ['retailClinic', 'urgentCare', 'imaging', 'outpatientSurgery', 'inpatient']
+
+const spec = (name) => ({ id: `spec-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, name })
+const S = {
+  chiropractic: spec('Chiropractic'),
+  convenienceCare: spec('Convenience Care Clinic'),
+  orthoGeneral: spec('Orthopedic Surgery - General'),
+  orthoHipKnee: spec('Orthopedic Surgery - Hip & Knee'),
+  orthoPediatric: spec('Orthopedic Surgery - Pediatric'),
+  orthoSpine: spec('Orthopedic Surgery - Spine'),
+  osteopathic: spec('Osteopathic Manipulative Medicine'),
+  outpatientRehab: spec('Outpatient Rehabilitation Facility'),
+  painManagement: spec('Pain Management'),
+  pediatrics: spec('Pediatrics'),
+  physiatry: spec('Physiatry'),
+  physiatryPediatric: spec('Physiatry - Pediatric'),
+  physicalTherapy: spec('Physical Therapy'),
+  physicalTherapyPediatric: spec('Physical Therapy - Pediatric'),
+  primaryCare: spec('Primary Care (Family Medicine/Internal Medicine)'),
+  rheumatology: spec('Rheumatology'),
+  rheumatologyPediatric: spec('Rheumatology - Pediatric'),
+  sportsMedicine: spec('Sports Medicine'),
+  sportsMedicinePediatric: spec('Sports Medicine - Pediatric'),
+  urgentCare: spec('Urgent Care'),
+  radiology: spec('Diagnostic Radiology'),
+  ambulatorySurgery: spec('Ambulatory Surgery Center'),
+  acuteCareHospital: spec('Acute Care Hospital'),
+  otolaryngology: spec('Otolaryngology (ENT)'),
+  neurosurgery: spec('Neurological Surgery'),
+}
+const rows = (sobLineItem, specialties) => specialties.map((specialty) => ({ specialty, sobLineItem }))
+
+const VISIT_REASONS = [
+  {
+    id: 'vr-knee-pain', name: 'Knee Pain', terms: ['knee', 'pain', 'joint'],
+    combos: [
+      ...rows(SOB.chiropractic, [S.chiropractic]),
+      ...rows(SOB.retailClinic, [S.convenienceCare]),
+      ...rows(SOB.specialtyCare, [S.orthoGeneral, S.orthoHipKnee, S.orthoPediatric, S.osteopathic]),
+      ...rows(SOB.physicalTherapy, [S.outpatientRehab]),
+      ...rows(SOB.specialtyCare, [S.painManagement]),
+      ...rows(SOB.primaryCare, [S.pediatrics]),
+      ...rows(SOB.specialtyCare, [S.physiatry, S.physiatryPediatric]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy, S.physicalTherapyPediatric]),
+      ...rows(SOB.primaryCare, [S.primaryCare]),
+      ...rows(SOB.specialtyCare, [S.rheumatology, S.rheumatologyPediatric, S.sportsMedicine, S.sportsMedicinePediatric]),
+      ...rows(SOB.urgentCare, [S.urgentCare]),
+    ],
+  },
+  {
+    id: 'vr-knee-injury', name: 'Knee Injury', terms: ['knee', 'injury', 'sprain'],
+    combos: [
+      ...rows(SOB.urgentCare, [S.urgentCare]),
+      ...rows(SOB.specialtyCare, [S.orthoGeneral, S.orthoHipKnee, S.sportsMedicine]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy]),
+      ...rows(SOB.primaryCare, [S.primaryCare]),
+    ],
+  },
+  {
+    id: 'vr-knee-arthroscopy', name: 'Knee Arthroscopy and Repair', terms: ['knee', 'arthroscopy', 'scope', 'surgery'],
+    combos: [...rows(SOB.specialtyCare, [S.orthoHipKnee, S.sportsMedicine]), ...rows(SOB.outpatientSurgery, [S.ambulatorySurgery])],
+  },
+  {
+    id: 'vr-ortho-visit-hip-knee', name: 'Orthopedic Visit - Hip & Knee', terms: ['knee', 'hip', 'orthopedic', 'ortho'],
+    combos: rows(SOB.specialtyCare, [S.orthoHipKnee, S.orthoGeneral]),
+  },
+  {
+    id: 'vr-knee-replacement', name: 'Knee Replacement and Revision', terms: ['knee', 'replacement', 'surgery'],
+    combos: [
+      ...rows(SOB.specialtyCare, [S.orthoHipKnee]),
+      ...rows(SOB.inpatientStay, [S.acuteCareHospital]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy, S.outpatientRehab]),
+    ],
+  },
+  {
+    id: 'vr-meniscus-tear', name: 'Meniscus Tear', terms: ['knee', 'meniscus', 'tear'],
+    combos: [
+      ...rows(SOB.specialtyCare, [S.orthoHipKnee, S.sportsMedicine]),
+      ...rows(SOB.advancedImaging, [S.radiology]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy]),
+    ],
+  },
+  {
+    id: 'vr-acl-injury', name: 'ACL Injury', terms: ['knee', 'acl', 'ligament', 'injury'],
+    combos: [
+      ...rows(SOB.specialtyCare, [S.orthoHipKnee, S.sportsMedicine, S.sportsMedicinePediatric]),
+      ...rows(SOB.advancedImaging, [S.radiology]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy]),
+    ],
+  },
+  {
+    id: 'vr-back-pain', name: 'Back Pain', terms: ['back', 'pain', 'spine'],
+    combos: [
+      ...rows(SOB.chiropractic, [S.chiropractic]),
+      ...rows(SOB.primaryCare, [S.primaryCare]),
+      ...rows(SOB.physicalTherapy, [S.physicalTherapy, S.outpatientRehab]),
+      ...rows(SOB.specialtyCare, [S.orthoSpine, S.painManagement, S.physiatry, S.neurosurgery]),
+      ...rows(SOB.urgentCare, [S.urgentCare]),
+    ],
+  },
+  {
+    id: 'vr-sore-throat', name: 'Sore Throat', terms: ['sore', 'throat', 'strep'],
+    combos: [
+      ...rows(SOB.primaryCare, [S.primaryCare, S.pediatrics]),
+      ...rows(SOB.retailClinic, [S.convenienceCare]),
+      ...rows(SOB.urgentCare, [S.urgentCare]),
+      ...rows(SOB.specialtyCare, [S.otolaryngology]),
+    ],
+  },
+]
+
+// Specialty rows: the lineItemResult variant of the typeahead response.
+const LINE_ITEMS = [
+  { id: 'li-ortho-hip-knee', sobLineItem: SOB.specialtyCare, specialties: [S.orthoHipKnee], terms: ['knee', 'hip', 'pain', 'orthopedic', 'ortho', 'joint'] },
+  { id: 'li-physical-therapy', sobLineItem: SOB.physicalTherapy, specialties: [S.physicalTherapy], terms: ['physical', 'therapy', 'pt', 'rehab'] },
+  { id: 'li-chiropractic', sobLineItem: SOB.chiropractic, specialties: [S.chiropractic], terms: ['chiropractic', 'chiropractor', 'spine', 'back'] },
+  { id: 'li-urgent-care', sobLineItem: SOB.urgentCare, specialties: [S.urgentCare], terms: ['urgent', 'care', 'walk'] },
+  { id: 'li-primary-care', sobLineItem: SOB.primaryCare, specialties: [S.primaryCare], terms: ['primary', 'care', 'doctor', 'family', 'internal'] },
+]
+
+/** A visit reason's rows grouped by SOB line item, largest group first. */
+function groupBySobLineItem(reason) {
+  const groups = new Map()
+  for (const { sobLineItem, specialty } of reason.combos) {
+    const group = groups.get(sobLineItem.id)
+    if (group) {
+      if (!group.specialties.some((s) => s.id === specialty.id)) group.specialties.push(specialty)
+    } else {
+      groups.set(sobLineItem.id, { id: `${reason.id}:${sobLineItem.id}`, sobLineItem, specialties: [specialty] })
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.specialties.length - a.specialties.length)
+}
+
+/* ---------------------------------------------------- mock typeahead API */
+const words = (value) => value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+const CANDIDATES = [
+  ...VISIT_REASONS.map((visitReason) => ({
+    result: { variant: 'visitReasonResult', id: visitReason.id, visitReason },
+    words: [...words(visitReason.name), ...visitReason.terms],
+  })),
+  ...LINE_ITEMS.map((entry) => ({
+    result: { variant: 'lineItemResult', id: entry.id, entry },
+    words: [...entry.specialties.flatMap((s) => words(s.name)), ...entry.terms],
+  })),
+].map((candidate, index) => ({
+  ...candidate,
+  // The specialty row sits under the best visit reason, as in the real typeahead.
+  order: candidate.result.id === 'li-ortho-hip-knee' ? 0.5 : index,
+}))
+
+function mockSearch(query) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const tokens = words(query)
+      const ranked = CANDIDATES.map((c) => ({ ...c, score: tokens.filter((t) => c.words.some((w) => w.startsWith(t))).length }))
+        .filter((c) => c.score > 0)
+        .sort((a, b) => b.score - a.score || a.order - b.order)
+      resolve(ranked.slice(0, 10).map((c) => c.result))
+    }, 450)
+  })
+}
+
+/* -------------------------------------------------------- mock copay API */
+const MEMBER_LOCATIONS = [
+  { zip: '53045', label: 'Brookfield, WI 53045, USA', lat: 43.0606, lng: -88.1065 },
+  { zip: '53213', label: 'Wauwatosa, WI 53213, USA', lat: 43.0495, lng: -88.0076 },
+  { zip: '53188', label: 'Waukesha, WI 53188, USA', lat: 43.0117, lng: -88.2315 },
+]
+const LOCATIONS = [
+  ['loc-1', 'Lakeview Orthopedics & Sports Medicine', '17800 W Bluemound Rd', 'Brookfield', '53045', 43.0336, -88.1181, ['specialist']],
+  ['loc-2', 'Brookfield Family Medicine', '2400 N Calhoun Rd', 'Brookfield', '53005', 43.0601, -88.1275, ['primaryCare']],
+  ['loc-3', 'Elm Grove Physical Therapy', '13400 Watertown Plank Rd', 'Elm Grove', '53122', 43.0436, -88.0786, ['physicalTherapy']],
+  ['loc-4', 'Wauwatosa Spine & Chiropractic', '7300 W North Ave', 'Wauwatosa', '53213', 43.0607, -88.0018, ['chiropractic']],
+  ['loc-5', 'QuickCare Clinic - Brookfield Square', '95 N Moorland Rd', 'Brookfield', '53005', 43.0397, -88.1068, ['retailClinic']],
+  ['loc-6', 'Westside Urgent Care', '1255 S Sunnyslope Rd', 'New Berlin', '53151', 43.0042, -88.0942, ['urgentCare']],
+  ['loc-7', 'Waukesha Bone & Joint Center', '1111 Delafield St', 'Waukesha', '53188', 43.0121, -88.2412, ['specialist', 'imaging']],
+  ['loc-8', 'Pewaukee Rehabilitation Institute', '1600 Capitol Dr', 'Pewaukee', '53072', 43.0816, -88.2281, ['physicalTherapy']],
+  ['loc-9', 'Tosa Internal Medicine Associates', '10900 W Potter Rd', 'Wauwatosa', '53226', 43.0712, -88.0401, ['primaryCare', 'specialist']],
+  ['loc-10', 'Menomonee Falls Urgent Care', 'N84 W15800 Menomonee Ave', 'Menomonee Falls', '53051', 43.1781, -88.1097, ['urgentCare', 'retailClinic']],
+  ['loc-11', 'Greater Milwaukee Surgery Center', '3003 W Good Hope Rd', 'Milwaukee', '53209', 43.1484, -87.9553, ['outpatientSurgery']],
+  ['loc-12', 'Lakeshore Regional Hospital', '9200 W Wisconsin Ave', 'Wauwatosa', '53226', 43.0389, -88.0233, ['inpatient', 'imaging', 'outpatientSurgery']],
+  ['loc-13', 'New Berlin Pediatrics & Family Care', '15250 W National Ave', 'New Berlin', '53151', 42.9862, -88.1198, ['primaryCare', 'specialist']],
+  ['loc-14', 'Brookfield Chiropractic & Wellness', '19035 W Capitol Dr', 'Brookfield', '53045', 43.0893, -88.1519, ['chiropractic']],
+  ['loc-15', 'West Allis Physical Therapy & Sports Rehab', '10101 W Greenfield Ave', 'West Allis', '53214', 43.0167, -88.0402, ['physicalTherapy']],
+].map(([id, name, street, city, zip, lat, lng, kinds]) => ({ id, name, street, city, zip, lat, lng, kinds }))
+
+const FIRST_NAMES = ['Sarah', 'Michael', 'Priya', 'David', 'Emily', 'James', 'Laura', 'Daniel', 'Megan', 'Andrew', 'Rachel', 'Kevin']
+const LAST_NAMES = ['Hartman', 'Okafor', 'Lindqvist', 'Ramirez', 'Schultz', 'Nguyen', 'Kowalski', 'Brennan', 'Patel', 'Becker', 'Morrison', 'Thao']
+const DEGREES = { specialist: 'MD', primaryCare: 'MD', physicalTherapy: 'PT, DPT', chiropractic: 'DC' }
+
+/** Stable hash, so the same search always looks the same. */
+function hash(value) {
+  let h = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return Math.abs(h)
+}
+function miles(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 3958.8 * 2 * Math.asin(Math.sqrt(h))
+}
+
+/** Prices each (specialty, SOB line item) row at up to two nearby locations. */
+function mockCopaySearch(selection, member) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const results = new Map()
+      for (const { specialty, sobLineItem } of selection.combos) {
+        const candidates = LOCATIONS.filter((l) => l.kinds.includes(sobLineItem.kind))
+        const offset = hash(specialty.id) % Math.max(candidates.length, 1)
+        const picked = [...candidates.slice(offset), ...candidates.slice(0, offset)].slice(0, 3)
+        for (const location of picked) {
+          const key = `${specialty.id}|${sobLineItem.id}|${location.id}`
+          const seed = hash(key)
+          const locationOnly = LOCATION_ONLY_KINDS.includes(sobLineItem.kind)
+          results.set(key, {
+            id: `copay-${seed.toString(36)}`,
+            amount: COPAY_BY_KIND[sobLineItem.kind] + (seed % 3 === 0 ? 10 : 0),
+            location,
+            distance: miles(member, location),
+            sobLineItem,
+            specialty,
+            locationOnly,
+            provider: locationOnly
+              ? null
+              : {
+                  name: `${FIRST_NAMES[seed % FIRST_NAMES.length]} ${LAST_NAMES[(seed >> 4) % LAST_NAMES.length]}`,
+                  degrees: DEGREES[sobLineItem.kind] ?? 'MD',
+                },
+          })
+        }
+      }
+      const sorted = [...results.values()].sort((a, b) => a.distance - b.distance)
+      sorted.forEach((r, i) => { r.topChoice = i < 2 })
+      resolve(sorted)
+    }, 900)
+  })
+}
+
+/* ------------------------------------------------------------ selections */
+function selectWholeVisitReason(visitReason) {
+  return {
+    id: visitReason.id,
+    title: visitReason.name,
+    subtitle: `All types of care (${countLabel(groupBySobLineItem(visitReason).length, 'service')})`,
+    visitReason,
+    combos: visitReason.combos,
+  }
+}
+function selectGroup(group, visitReason) {
+  const single = group.specialties.length === 1
+  return {
+    id: group.id,
+    title: single ? group.specialties[0].name : group.sobLineItem.name,
+    subtitle: [single ? group.sobLineItem.name : specialtyCount(group.specialties.length), visitReason && `for ${visitReason.name}`]
+      .filter(Boolean)
+      .join(' · '),
+    visitReason,
+    combos: rows(group.sobLineItem, group.specialties),
+  }
+}
+function selectCombo(group, specialty, visitReason) {
+  return {
+    id: `${group.id}:${specialty.id}`,
+    title: specialty.name,
+    subtitle: `${group.sobLineItem.name} · for ${visitReason.name}`,
+    visitReason,
+    combos: [{ specialty, sobLineItem: group.sobLineItem }],
+  }
+}
+
+/* ----------------------------------------------------------------- state */
+const state = {
+  view: 'search',
+  selection: null,
+  location: MEMBER_LOCATIONS[0],
+  results: null,
+  activeLocationId: null,
+}
+const combo = {
+  open: false,
+  query: '',
+  results: [],
+  loading: false,
+  levels: [{ kind: 'results' }],
+  depth: 0,
+  requestId: 0,
+  debounce: null,
+}
+
+const $ = (id) => document.getElementById(id)
+const els = {
+  searchView: $('search-view'), resultsView: $('results-view'), form: $('search-form'),
+  field: $('service-field'), trigger: $('service-trigger'), popover: $('service-popover'),
+  query: $('query'), clear: $('clear'), viewport: $('viewport'), track: $('track'),
+  zipField: $('zip-field'), zipTrigger: $('zip-trigger'), zipPopover: $('zip-popover'),
+  findCare: $('find-care'), resultsList: $('results-list'),
+}
+
+/* --------------------------------------------------------- combobox view */
+function renderTrigger() {
+  const s = state.selection
+  els.trigger.innerHTML = `
+    <div class="row">
+      <span class="lead ${s ? '' : 'placeholder'}">${esc(s ? s.title : 'What care are you looking for?')}</span>
+      ${icon('chevronsUpDown')}
+    </div>
+    ${s?.subtitle ? `<hr /><span class="trail">${esc(s.subtitle)}</span>` : ''}`
+  els.findCare.disabled = !(state.selection && state.location)
+}
+
+function optionRow({ action, data = {}, leading, title, subtitle, drillable = false, selected = false, soft = false }) {
+  const attrs = Object.entries(data).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ')
+  return `
+    <button type="button" class="option" role="option" data-option data-action="${action}" ${attrs}
+      ${drillable ? 'data-drillable="true"' : ''} aria-selected="${selected}">
+      ${leading}
+      <span class="text">
+        <span class="t1 ${soft ? 'soft' : ''}">${esc(title)}</span>
+        ${subtitle ? `<span class="t2">${esc(subtitle)}</span>` : ''}
+      </span>
+      ${drillable ? icon('chevronRight', 'caret') : ''}
+    </button>
+    <hr class="sep" />`
+}
+const badge = (type) => `<span class="badge ${type}">${type === 'reason' ? 'Reason' : 'Specialty'}</span>`
+const kindIcon = (name, soft = false) => `<span class="kind ${soft ? 'soft' : ''}">${icon(name)}</span>`
+
+const POPULAR = [
+  ...['vr-knee-pain', 'vr-back-pain', 'vr-sore-throat'].map((id) => {
+    const visitReason = VISIT_REASONS.find((v) => v.id === id)
+    return { variant: 'visitReasonResult', id, visitReason }
+  }),
+  ...['li-physical-therapy', 'li-urgent-care'].map((id) => ({ variant: 'lineItemResult', id, entry: LINE_ITEMS.find((l) => l.id === id) })),
+]
+
+function renderResultsPanel() {
+  const selectedId = state.selection?.id ?? ''
+  const isEmpty = combo.query.trim() === ''
+  if (combo.loading && combo.results.length === 0) {
+    return `<div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px">
+      ${'<div class="skeleton" style="height:44px"></div>'.repeat(3)}</div>`
+  }
+  if (!isEmpty && combo.results.length === 0) return '<p class="empty">No results found.</p>'
+  const list = isEmpty ? POPULAR : combo.results
+  return `
+    <div class="panel-list ${combo.loading ? 'dimmed' : ''}">
+      ${isEmpty ? '<p class="group-label">Popular Searches</p>' : ''}
+      ${list
+        .map((r) =>
+          r.variant === 'visitReasonResult'
+            ? optionRow({
+                action: 'drill-reason',
+                data: { id: r.id },
+                leading: badge('reason'),
+                title: r.visitReason.name,
+                subtitle: `${countLabel(groupBySobLineItem(r.visitReason).length, 'type')} of care`,
+                drillable: true,
+                selected: selectedId.startsWith(r.id),
+              })
+            : optionRow({
+                action: 'select-line-item',
+                data: { id: r.id },
+                leading: badge('specialty'),
+                title: r.entry.specialties.map((s) => s.name).join(', '),
+                subtitle: r.entry.sobLineItem.name,
+                selected: selectedId === r.id,
+              }),
+        )
+        .join('')}
+    </div>`
+}
+
+function panelHead({ back, eyebrow, title, desc }) {
+  return `
+    <div class="panel-head">
+      <button type="button" class="back" data-action="back" aria-label="${esc(back)}">${icon('chevronLeft')}</button>
+      <div class="titles">
+        <div>${eyebrow}</div>
+        <span class="title">${esc(title)}</span>
+        <span class="desc">${esc(desc)}</span>
+      </div>
+    </div>`
+}
+
+function renderVisitReasonPanel(visitReason) {
+  const selectedId = state.selection?.id ?? ''
+  const groups = groupBySobLineItem(visitReason)
+  return `
+    ${panelHead({ back: 'Back to search results', eyebrow: badge('reason'), title: visitReason.name, desc: 'What type of care are you looking for?' })}
+    <div class="panel-list">
+      ${groups
+        .map((g) => {
+          const single = g.specialties.length === 1
+          const preview = g.specialties.slice(0, 2).map((s) => s.name).join(', ') + (g.specialties.length > 2 ? ', …' : '')
+          return optionRow({
+            action: single ? 'select-group' : 'drill-group',
+            data: { id: g.id },
+            leading: kindIcon(KIND_ICON[g.sobLineItem.kind]),
+            title: g.sobLineItem.name,
+            subtitle: single ? g.specialties[0].name : `${specialtyCount(g.specialties.length)} · ${preview}`,
+            drillable: !single,
+            selected: selectedId.startsWith(g.id),
+          })
+        })
+        .join('')}
+      <hr class="dashed" />
+      ${optionRow({
+        action: 'select-all',
+        leading: kindIcon('layers', true),
+        title: `Search all care for ${visitReason.name}`,
+        subtitle: `Copays can vary widely across ${countLabel(groups.length, 'type')} of care`,
+        soft: true,
+        selected: selectedId === visitReason.id,
+      })}
+    </div>`
+}
+
+function renderGroupPanel(visitReason, group) {
+  const selectedId = state.selection?.id ?? ''
+  return `
+    ${panelHead({
+      back: `Back to ${visitReason.name}`,
+      eyebrow: `<span class="eyebrow">${esc(visitReason.name)}</span>`,
+      title: group.sobLineItem.name,
+      desc: 'Which kind of provider would you like to see?',
+    })}
+    <div class="panel-list">
+      ${optionRow({
+        action: 'select-group',
+        data: { id: group.id },
+        leading: kindIcon(KIND_ICON[group.sobLineItem.kind]),
+        title: 'Any of these specialties',
+        subtitle: `Compare copays across all ${specialtyCount(group.specialties.length)}`,
+        selected: selectedId === group.id,
+      })}
+      ${group.specialties
+        .map((s) =>
+          optionRow({
+            action: 'select-combo',
+            data: { id: s.id },
+            leading: '<span class="indent"></span>',
+            title: s.name,
+            selected: selectedId === `${group.id}:${s.id}`,
+          }),
+        )
+        .join('')}
+    </div>`
+}
+
+function renderLevel(level) {
+  if (level.kind === 'results') return renderResultsPanel()
+  if (level.kind === 'reason') return renderVisitReasonPanel(level.visitReason)
+  return renderGroupPanel(level.visitReason, level.group)
+}
+
+const panels = () => [...els.track.children]
+
+function syncPanels() {
+  panels().forEach((panel, i) => {
+    panel.inert = i !== combo.depth
+    panel.setAttribute('aria-hidden', String(i !== combo.depth))
+  })
+  els.track.style.transform = `translateX(-${combo.depth * 100}%)`
+  updateHeight()
+}
+
+function updateHeight() {
+  const active = panels()[combo.depth]
+  if (active) els.viewport.style.height = `${active.offsetHeight}px`
+}
+
+/** Re-renders every panel in place, with no slide. */
+function renderAllPanels() {
+  els.track.classList.add('no-anim')
+  els.viewport.classList.add('no-anim')
+  els.track.innerHTML = combo.levels.map((level) => `<div class="panel">${renderLevel(level)}</div>`).join('')
+  syncPanels()
+  void els.track.offsetWidth
+  els.track.classList.remove('no-anim')
+  els.viewport.classList.remove('no-anim')
+}
+
+function rerenderPanel(index) {
+  const panel = panels()[index]
+  if (!panel) return
+  panel.innerHTML = renderLevel(combo.levels[index])
+  if (index === combo.depth) updateHeight()
+}
+
+function drill(level) {
+  for (const extra of panels().slice(combo.depth + 1)) extra.remove()
+  combo.levels = [...combo.levels.slice(0, combo.depth + 1), level]
+  els.track.insertAdjacentHTML('beforeend', `<div class="panel">${renderLevel(level)}</div>`)
+  void els.track.offsetWidth
+  combo.depth += 1
+  syncPanels()
+}
+
+function back() {
+  if (combo.depth === 0) return
+  combo.depth -= 1
+  syncPanels()
+}
+
+els.track.addEventListener('transitionend', (e) => {
+  if (e.target !== els.track || e.propertyName !== 'transform') return
+  for (const extra of panels().slice(combo.depth + 1)) extra.remove()
+  combo.levels = combo.levels.slice(0, combo.depth + 1)
+  if (combo.depth === 0) els.query.focus({ preventScroll: true })
+  else panels()[combo.depth]?.querySelector('[data-option]')?.focus({ preventScroll: true })
+})
+
+function runSearch() {
+  const query = combo.query
+  clearTimeout(combo.debounce)
+  els.clear.hidden = !query
+  if (!query.trim()) {
+    combo.results = []
+    combo.loading = false
+    rerenderPanel(0)
+    return
+  }
+  combo.loading = true
+  rerenderPanel(0)
+  const requestId = ++combo.requestId
+  combo.debounce = setTimeout(async () => {
+    const results = await mockSearch(query)
+    if (requestId !== combo.requestId) return
+    combo.results = results
+    combo.loading = false
+    rerenderPanel(0)
+  }, 150)
+}
+
+function resetToRoot() {
+  combo.levels = [{ kind: 'results' }]
+  combo.depth = 0
+  renderAllPanels()
+}
+
+function openCombo() {
+  closeZip()
+  combo.open = true
+  // Reopening a drilled-in choice lands back on its visit reason, so the member
+  // can switch to a different type of care in one click.
+  const visitReason = state.selection?.visitReason
+  combo.levels = visitReason ? [{ kind: 'results' }, { kind: 'reason', visitReason }] : [{ kind: 'results' }]
+  combo.depth = combo.levels.length - 1
+  if (visitReason && !combo.query) {
+    combo.query = visitReason.name
+    els.query.value = combo.query
+    runSearch()
+  }
+  els.popover.hidden = false
+  els.trigger.setAttribute('aria-expanded', 'true')
+  renderAllPanels()
+  requestAnimationFrame(() => {
+    if (combo.depth === 0) {
+      els.query.focus()
+      els.query.setSelectionRange(0, els.query.value.length, 'forward')
+    } else {
+      panels()[combo.depth]?.querySelector('[data-option]')?.focus({ preventScroll: true })
+    }
+  })
+}
+
+function closeCombo() {
+  combo.open = false
+  els.popover.hidden = true
+  els.trigger.setAttribute('aria-expanded', 'false')
+}
+
+function choose(selection) {
+  state.selection = selection
+  renderTrigger()
+  closeCombo()
+  els.trigger.focus()
+}
+
+els.trigger.addEventListener('click', () => (combo.open ? closeCombo() : openCombo()))
+els.query.addEventListener('input', () => {
+  combo.query = els.query.value
+  if (combo.depth !== 0 || combo.levels.length > 1) resetToRoot()
+  runSearch()
+})
+els.query.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') e.preventDefault()
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    panels()[combo.depth]?.querySelector('[data-option]')?.focus()
+  }
+})
+els.clear.addEventListener('click', () => {
+  combo.query = ''
+  els.query.value = ''
+  resetToRoot()
+  runSearch()
+  els.query.focus()
+})
+
+els.track.addEventListener('click', (e) => {
+  const target = e.target.closest('[data-action]')
+  if (!target) return
+  const level = combo.levels[combo.depth]
+  const id = target.dataset.id
+  switch (target.dataset.action) {
+    case 'back':
+      return back()
+    case 'drill-reason':
+      return drill({ kind: 'reason', visitReason: VISIT_REASONS.find((v) => v.id === id) })
+    case 'select-line-item': {
+      const entry = LINE_ITEMS.find((l) => l.id === id)
+      return choose(selectGroup(entry))
+    }
+    case 'drill-group':
+      return drill({ kind: 'group', visitReason: level.visitReason, group: groupBySobLineItem(level.visitReason).find((g) => g.id === id) })
+    case 'select-group': {
+      const group = level.group ?? groupBySobLineItem(level.visitReason).find((g) => g.id === id)
+      return choose(selectGroup(group, level.visitReason))
+    }
+    case 'select-all':
+      return choose(selectWholeVisitReason(level.visitReason))
+    case 'select-combo': {
+      const specialty = level.group.specialties.find((s) => s.id === id)
+      return choose(selectCombo(level.group, specialty, level.visitReason))
+    }
+  }
+})
+
+els.track.addEventListener('keydown', (e) => {
+  const target = e.target
+  if (!target.matches('[data-option]')) return
+  const options = [...panels()[combo.depth].querySelectorAll('[data-option]')]
+  const index = options.indexOf(target)
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    options[Math.min(index + 1, options.length - 1)]?.focus()
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (index === 0 && combo.depth === 0) els.query.focus()
+    else options[Math.max(index - 1, 0)]?.focus()
+  } else if (e.key === 'ArrowRight' && target.dataset.drillable) {
+    e.preventDefault()
+    target.click()
+  } else if ((e.key === 'ArrowLeft' || e.key === 'Backspace') && combo.depth > 0) {
+    e.preventDefault()
+    back()
+  }
+})
+
+/* -------------------------------------------------------- location picker */
+function renderZip() {
+  els.zipTrigger.innerHTML = `<span>${esc(state.location?.label ?? 'Zip Code')}</span>${icon('chevronsUpDown')}`
+  els.zipPopover.innerHTML = MEMBER_LOCATIONS.map(
+    (loc) => `<button type="button" class="loc-option" data-zip="${loc.zip}" aria-selected="${loc.zip === state.location?.zip}">
+        ${icon('check', 'check')}<span>${esc(loc.label)}</span></button>`,
+  ).join('')
+}
+function closeZip() {
+  els.zipPopover.hidden = true
+  els.zipTrigger.setAttribute('aria-expanded', 'false')
+}
+els.zipTrigger.addEventListener('click', () => {
+  const opening = els.zipPopover.hidden
+  closeCombo()
+  els.zipPopover.hidden = !opening
+  els.zipTrigger.setAttribute('aria-expanded', String(opening))
+})
+els.zipPopover.addEventListener('click', (e) => {
+  const option = e.target.closest('[data-zip]')
+  if (!option) return
+  state.location = MEMBER_LOCATIONS.find((l) => l.zip === option.dataset.zip)
+  renderZip()
+  closeZip()
+  renderTrigger()
+})
+
+document.addEventListener('mousedown', (e) => {
+  if (combo.open && !els.field.contains(e.target)) closeCombo()
+  if (!els.zipPopover.hidden && !els.zipField.contains(e.target)) closeZip()
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return
+  if (combo.open) {
+    closeCombo()
+    els.trigger.focus()
+  }
+  closeZip()
+})
+
+/* ---------------------------------------------------------------- results */
+let map = null
+const markers = new Map()
+
+function showSearch({ refine = false } = {}) {
+  state.view = 'search'
+  els.resultsView.hidden = true
+  els.searchView.hidden = false
+  window.scrollTo({ top: 0 })
+  if (refine) openCombo()
+}
+
+async function runCopaySearch() {
+  if (!(state.selection && state.location)) return
+  closeCombo()
+  state.view = 'results'
+  state.results = null
+  state.activeLocationId = null
+  els.searchView.hidden = true
+  els.resultsView.hidden = false
+  window.scrollTo({ top: 0 })
+  els.resultsList.scrollTop = 0
+  renderResults()
+  const results = await mockCopaySearch(state.selection, state.location)
+  if (state.view !== 'results') return
+  state.results = results
+  renderResults()
+}
+
+function summaryHtml() {
+  const { selection, results } = state
+  const lineItems = [...new Map(selection.combos.map((c) => [c.sobLineItem.id, c.sobLineItem])).values()]
+  const specialties = [...new Map(selection.combos.map((c) => [c.specialty.id, c.specialty])).values()]
+  const amounts = results?.map((r) => r.amount) ?? []
+  const min = amounts.length ? Math.min(...amounts) : null
+  const max = amounts.length ? Math.max(...amounts) : null
+  const range = min === null ? '' : min === max ? `$${min}` : `$${min} – $${max}`
+  const path = [
+    selection.visitReason?.name,
+    lineItems.length === 1 ? lineItems[0].name : null,
+    lineItems.length === 1 && specialties.length === 1 ? specialties[0].name : null,
+  ].filter(Boolean)
+  const pathHtml = path
+    .map((part, i) => `${i ? icon('chevronRight') : ''}<span class="${i === path.length - 1 ? 'last' : ''}">${esc(part)}</span>`)
+    .join('')
+  const extra = lineItems.length === 1 && specialties.length > 1 ? `<span>(${specialtyCount(specialties.length)})</span>` : ''
+
+  const note =
+    lineItems.length > 1
+      ? `<div class="note warn">${icon('alert')}
+          <div class="stack">
+            <p>These results mix ${countLabel(lineItems.length, 'type')} of care${range ? `, so copays range from ${range}` : ''}. Pick one type of care to compare like for like.</p>
+            <div class="chips">${lineItems.map((l) => `<span class="chip">${esc(l.name)}</span>`).join('')}</div>
+            <button type="button" class="btn btn-outline" data-nav="refine" style="width:fit-content">Choose a type of care</button>
+          </div>
+        </div>`
+      : `<div class="note ok">${icon('checkCircle')}
+          <p>Every result is priced as ${esc(lineItems[0].name)}${range ? ` · ${range} copay` : ''}${
+            selection.visitReason ? ` · <button type="button" class="link" data-nav="refine">Change type of care</button>` : ''
+          }</p>
+        </div>`
+
+  return `<div class="summary"><div class="label">Copays for</div><div class="path">${pathHtml}${extra}</div>${note}</div>`
+}
+
+function cardHtml(r) {
+  const address = `${r.location.street}, ${r.location.city}, WI, ${r.location.zip}`
+  const who = r.provider
+    ? `<p class="typo-subtitle-1">${esc(`${r.provider.name}, ${r.provider.degrees}`)}</p>
+       <p class="typo-body-1" style="padding-top:2px;color:var(--grey-700)">${esc(r.specialty.name)}</p>`
+    : `<p class="typo-subtitle-1">Any provider at this location</p>`
+  return `
+    <li id="result-${r.id}" data-location="${r.location.id}">
+      <div class="card ${r.topChoice ? 'top' : ''} ${state.activeLocationId === r.location.id ? 'active' : ''}">
+        <div class="card-head">
+          <span class="tag">${r.topChoice ? `${icon('lockOpen')}top choice` : ''}</span>
+          <span class="copay">$${r.amount}</span>
+        </div>
+        <p class="typo-heading-6">${esc(r.location.name)}</p>
+        <div class="addr typo-body-1"><p>${esc(address)}</p><p class="mi">${r.distance.toFixed(1)} mi</p></div>
+        <hr class="divider" />
+        <div class="provider">
+          <span class="avatar-lg">${icon(r.provider ? 'user' : 'building')}</span>
+          <div>${who}<p class="typo-body-2 service">${esc(r.sobLineItem.name)}</p></div>
+        </div>
+      </div>
+    </li>`
+}
+
+function renderResults() {
+  const { selection, location, results } = state
+  els.resultsList.innerHTML = `
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <button type="button" data-nav="home">Home</button>${icon('chevronRight')}
+      <span class="current">${esc(`${selection.title} - ${location.zip}`)}</span>
+    </nav>
+    ${summaryHtml()}
+    ${
+      results === null
+        ? `<div style="display:flex;flex-direction:column;gap:20px;padding-top:32px">
+            <div class="skeleton" style="height:24px;width:260px"></div>
+            ${'<div class="skeleton" style="height:208px;border-radius:8px"></div>'.repeat(4)}</div>`
+        : `<div class="count">
+            <p class="typo-subtitle-1">Showing ${results.length} of ${results.length} Available Options</p>
+            <p class="typo-body-1 muted">Results sorted by highest quality and nearest to your location.</p>
+          </div>
+          <ul class="cards">${results.map(cardHtml).join('')}</ul>
+          <p class="end typo-body-2">You've reached the end of the results.</p>`
+    }`
+  renderMap()
+}
+
+function renderMap() {
+  if (!window.L) return
+  // A fresh map per render: a reused one keeps a stale size and center from
+  // while its container was hidden on the search view.
+  map?.remove()
+  markers.clear()
+  map = L.map('map', { zoomControl: true }).setView([state.location.lat, state.location.lng], 11)
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map)
+  const member = L.circleMarker([state.location.lat, state.location.lng], {
+    radius: 7, color: '#fff', weight: 3, fillColor: '#1d4ed8', fillOpacity: 1,
+  }).bindTooltip('Your location')
+  member.addTo(map)
+  markers.set('__member', member)
+  if (!state.results) {
+    map.setView([state.location.lat, state.location.lng], 11)
+    return
+  }
+  const byLocation = new Map()
+  for (const r of state.results) {
+    if (!byLocation.has(r.location.id)) byLocation.set(r.location.id, [])
+    byLocation.get(r.location.id).push(r)
+  }
+  const bounds = L.latLngBounds([[state.location.lat, state.location.lng]])
+  for (const [locationId, group] of byLocation) {
+    const lowest = Math.min(...group.map((r) => r.amount))
+    const { lat, lng, name } = group[0].location
+    const marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: 'pin-wrap',
+        iconSize: [0, 0],
+        html: `<button type="button" class="pin" data-pin="${locationId}" aria-label="${esc(name)}">$${lowest}${group.length > 1 ? '+' : ''}</button>`,
+      }),
+      keyboard: false,
+    })
+    marker.on('click', () => {
+      setActiveLocation(locationId)
+      scrollToResult(group[0].id)
+    })
+    marker.addTo(map)
+    markers.set(locationId, marker)
+    bounds.extend([lat, lng])
+  }
+  map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 })
+}
+
+/** Scrolls only the list, so the page itself never slides under the header. */
+function scrollToResult(id) {
+  const item = document.getElementById(`result-${id}`)
+  if (!item) return
+  const list = els.resultsList
+  if (list.scrollHeight > list.clientHeight) {
+    const top = item.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop - 16
+    list.scrollTo({ top, behavior: 'smooth' })
+  } else {
+    const header = document.querySelector('.header').offsetHeight
+    window.scrollTo({ top: item.getBoundingClientRect().top + window.scrollY - header - 16, behavior: 'smooth' })
+  }
+}
+
+function setActiveLocation(locationId, { pan = false } = {}) {
+  state.activeLocationId = locationId
+  document.querySelectorAll('.cards li').forEach((li) => {
+    li.querySelector('.card').classList.toggle('active', li.dataset.location === locationId)
+  })
+  document.querySelectorAll('.pin').forEach((pin) => pin.classList.toggle('active', pin.dataset.pin === locationId))
+  const marker = markers.get(locationId)
+  if (marker) {
+    marker.setZIndexOffset(1000)
+    if (pan && !map.getBounds().contains(marker.getLatLng())) map.panTo(marker.getLatLng())
+  }
+}
+
+els.resultsList.addEventListener('mouseover', (e) => {
+  const li = e.target.closest('.cards li')
+  if (li && li.dataset.location !== state.activeLocationId) setActiveLocation(li.dataset.location, { pan: true })
+})
+els.resultsList.addEventListener('mouseleave', () => setActiveLocation(null))
+
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-nav]')
+  if (!nav) return
+  if (nav.dataset.nav === 'home') showSearch()
+  if (nav.dataset.nav === 'refine') showSearch({ refine: true })
+})
+
+els.form.addEventListener('submit', (e) => {
+  e.preventDefault()
+  runCopaySearch()
+})
+
+/* ------------------------------------------------------------------- init */
+$('popular').innerHTML = [
+  ['primary-care', 'Primary Care'], ['pediatrics', 'Pediatrics'], ['cardiology', 'Cardiology'],
+  ['neurology', 'Neurology'], ['ent', 'ENT'], ['mental-health', 'Mental Health'],
+]
+  .map(([file, label]) => `<div class="popular-item"><div class="circle"><img src="assets/${file}.svg" alt="" /></div><p class="typo-body-1">${label}</p></div>`)
+  .join('')
+renderTrigger()
+renderZip()
+renderAllPanels()
+</script>
+</body>
+</html>
