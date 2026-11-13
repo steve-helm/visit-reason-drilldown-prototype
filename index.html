@@ -378,17 +378,18 @@ const SOB = {
   mentalHealth: { id: 'sob-mental-health', name: 'Mental Health Visit', kind: 'mentalHealth', acuity: 3 },
   specialtyCare: { id: 'sob-specialty-care', name: 'Specialty Care Visit (office, home, virtual, phone)', kind: 'specialist', acuity: 4 },
   urgentCare: { id: 'sob-urgent-care', name: 'Urgent Care Visit', kind: 'urgentCare', acuity: 5 },
-  chiropractic: { id: 'sob-chiropractic', name: 'Chiropractic Care/Spinal Manipulations', kind: 'chiropractic', acuity: 6 },
-  physicalTherapy: { id: 'sob-physical-therapy', name: 'Physical Therapy', kind: 'physicalTherapy', acuity: 7 },
-  advancedImaging: { id: 'sob-advanced-imaging', name: 'Advanced Imaging (MRI/MRA, CT Scans, PET Scans, Nuclear Medicine)', kind: 'imaging', acuity: 8 },
-  outpatientSurgery: { id: 'sob-outpatient-surgery', name: 'Outpatient Surgery (facility)', kind: 'outpatientSurgery', acuity: 9 },
-  inpatientStay: { id: 'sob-inpatient-stay', name: 'Inpatient Hospital Stay', kind: 'inpatient', acuity: 10 },
+  emergencyRoom: { id: 'sob-emergency-room', name: 'Emergency Room (per visit)', kind: 'emergency', acuity: 6 },
+  chiropractic: { id: 'sob-chiropractic', name: 'Chiropractic Care/Spinal Manipulations', kind: 'chiropractic', acuity: 7 },
+  physicalTherapy: { id: 'sob-physical-therapy', name: 'Physical Therapy', kind: 'physicalTherapy', acuity: 8 },
+  advancedImaging: { id: 'sob-advanced-imaging', name: 'Advanced Imaging (MRI/MRA, CT Scans, PET Scans, Nuclear Medicine)', kind: 'imaging', acuity: 9 },
+  outpatientSurgery: { id: 'sob-outpatient-surgery', name: 'Outpatient Surgery (facility)', kind: 'outpatientSurgery', acuity: 10 },
+  inpatientStay: { id: 'sob-inpatient-stay', name: 'Inpatient Hospital Stay', kind: 'inpatient', acuity: 11 },
 }
 const COPAY_BY_KIND = {
   specialist: 50, primaryCare: 25, mentalHealth: 25, physicalTherapy: 35, chiropractic: 30, retailClinic: 20,
-  urgentCare: 75, imaging: 150, outpatientSurgery: 250, inpatient: 500,
+  urgentCare: 75, emergency: 200, imaging: 150, outpatientSurgery: 250, inpatient: 500,
 }
-const LOCATION_ONLY_KINDS = ['retailClinic', 'urgentCare', 'imaging', 'outpatientSurgery', 'inpatient']
+const LOCATION_ONLY_KINDS = ['retailClinic', 'urgentCare', 'emergency', 'imaging', 'outpatientSurgery', 'inpatient']
 const PRIOR_AUTH_KINDS = ['imaging', 'outpatientSurgery', 'inpatient']
 const COPAY_EXPIRY_DAYS = 30
 
@@ -420,6 +421,11 @@ const S = {
   otolaryngology: spec('Otolaryngology (ENT)'),
   neurosurgery: spec('Neurological Surgery'),
   obgyn: spec('Obstetrics & Gynecology (OB-GYN)'),
+  obstetrics: spec('Obstetrics (no GYN)'),
+  perinatology: spec('Perinatology'),
+  emergencyMedicine: spec('Emergency Medicine'),
+  freestandingER: spec('Freestanding Emergency Room'),
+  hospital: spec('Hospital'),
   cardiology: spec('Cardiology'),
   dermatology: spec('Dermatology'),
   endocrinology: spec('Endocrinology'),
@@ -488,6 +494,15 @@ const VISIT_REASONS = [
       ...rows(SOB.specialtyCare, [S.orthoHipKnee, S.sportsMedicine, S.sportsMedicinePediatric]),
       ...rows(SOB.advancedImaging, [S.radiology]),
       ...rows(SOB.physicalTherapy, [S.physicalTherapy]),
+    ],
+  },
+  {
+    id: 'vr-high-risk-pregnancy', name: 'High-Risk Pregnancy', terms: ['pregnancy', 'pregnant', 'high', 'risk', 'prenatal', 'maternal'],
+    combos: [
+      ...rows(SOB.emergencyRoom, [S.acuteCareHospital, S.emergencyMedicine, S.freestandingER, S.hospital]),
+      ...rows(SOB.primaryCare, [S.primaryCare]),
+      ...rows(SOB.specialtyCare, [S.obgyn, S.obstetrics, S.perinatology]),
+      ...rows(SOB.urgentCare, [S.urgentCare]),
     ],
   },
   {
@@ -576,16 +591,19 @@ const LOCATIONS = [
   ['loc-9', 'Tosa Internal Medicine Associates', '10900 W Potter Rd', 'Wauwatosa', '53226', 43.0712, -88.0401, ['primaryCare', 'specialist']],
   ['loc-10', 'Menomonee Falls Urgent Care', 'N84 W15800 Menomonee Ave', 'Menomonee Falls', '53051', 43.1781, -88.1097, ['urgentCare', 'retailClinic']],
   ['loc-11', 'Greater Milwaukee Surgery Center', '3003 W Good Hope Rd', 'Milwaukee', '53209', 43.1484, -87.9553, ['outpatientSurgery']],
-  ['loc-12', 'Lakeshore Regional Hospital', '9200 W Wisconsin Ave', 'Wauwatosa', '53226', 43.0389, -88.0233, ['inpatient', 'imaging', 'outpatientSurgery']],
+  ['loc-12', 'Lakeshore Regional Hospital', '9200 W Wisconsin Ave', 'Wauwatosa', '53226', 43.0389, -88.0233, ['inpatient', 'imaging', 'outpatientSurgery', 'emergency']],
   ['loc-13', 'New Berlin Pediatrics & Family Care', '15250 W National Ave', 'New Berlin', '53151', 42.9862, -88.1198, ['primaryCare', 'specialist']],
   ['loc-14', 'Brookfield Chiropractic & Wellness', '19035 W Capitol Dr', 'Brookfield', '53045', 43.0893, -88.1519, ['chiropractic']],
   ['loc-16', 'Brookfield Behavioral Health', '250 Bishops Way', 'Brookfield', '53005', 43.0479, -88.1453, ['mentalHealth']],
   ['loc-17', 'Tosa Counseling & Wellness', '6815 W Capitol Dr', 'Milwaukee', '53216', 43.0897, -87.9962, ['mentalHealth']],
+  ['loc-18', 'Brookfield Freestanding Emergency Center', '18700 W Bluemound Rd', 'Brookfield', '53045', 43.0329, -88.1302, ['emergency']],
+  ['loc-19', "Brookfield Women's Health Associates", '3805 N Brookfield Rd', 'Brookfield', '53045', 43.0782, -88.1354, ['specialist'], ['obgyn', 'obstetrics', 'perinatology']],
+  ['loc-20', 'Lakeshore Maternal-Fetal Medicine', '9150 W Wisconsin Ave', 'Wauwatosa', '53226', 43.0396, -88.0261, ['specialist'], ['perinatology', 'obstetrics', 'obgyn']],
   ['loc-15', 'West Allis Physical Therapy & Sports Rehab', '10101 W Greenfield Ave', 'West Allis', '53214', 43.0167, -88.0402, ['physicalTherapy']],
-].map(([id, name, street, city, zip, lat, lng, kinds]) => {
+].map(([id, name, street, city, zip, lat, lng, kinds, focus = []]) => {
   const line = String(1000000 + (hash(id) % 9000000))
   const phone = `(262) ${line.slice(0, 3)}-${line.slice(3)}`
-  return { id, name, street, city, zip, lat, lng, kinds, phone }
+  return { id, name, street, city, zip, lat, lng, kinds, phone, focus: focus.map((key) => S[key].id) }
 })
 
 const FIRST_NAMES = ['Sarah', 'Michael', 'Priya', 'David', 'Emily', 'James', 'Laura', 'Daniel', 'Megan', 'Andrew', 'Rachel', 'Kevin']
@@ -615,7 +633,10 @@ function mockCopaySearch(selection, member) {
     setTimeout(() => {
       const results = new Map()
       for (const { specialty, sobLineItem } of selection.combos) {
-        const candidates = LOCATIONS.filter((l) => l.kinds.includes(sobLineItem.kind))
+        // A location with a focus only offers those specialties, and is preferred for them.
+        const offering = LOCATIONS.filter((l) => l.kinds.includes(sobLineItem.kind))
+        const focused = offering.filter((l) => l.focus.includes(specialty.id))
+        const candidates = focused.length ? focused : offering.filter((l) => l.focus.length === 0)
         const offset = hash(specialty.id) % Math.max(candidates.length, 1)
         const picked = [...candidates.slice(offset), ...candidates.slice(0, offset)].slice(0, 3)
         for (const location of picked) {
